@@ -10,8 +10,7 @@ See the [changelog](CHANGELOG.md) for changes.
 - [ ] Command Line Interface
 - [ ] GUI Interface
 - [ ] Source Engines as plug-ins
-
-## TODO
+- [ ] NuGet engine plug-in
 
 ## Implementing in your application
 - See the [command line help](HELP_CLI.md) for usage.

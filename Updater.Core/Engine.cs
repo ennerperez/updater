@@ -5,6 +5,15 @@ using System.Text;
 
 namespace Updater.Core
 {
+
+    public static class Engine
+    {
+        public static void WriteLine(string message, ConsoleColor color = ConsoleColor.Gray, params string[] args)
+        {
+            Engine<ISource>.WriteLine(message, color, args);
+        }
+    }
+
     public sealed class Engine<TSource> where TSource : ISource
     {
 
@@ -43,6 +52,19 @@ namespace Updater.Core
                     source = Activator.CreateInstance<TSource>();
                 return source;
             }
+        }
+
+
+        public static void WriteLine(string message, ConsoleColor color = ConsoleColor.Gray, params string[] args)
+        {
+            Console.ForegroundColor = color;
+
+            var name = System.Reflection.Assembly.GetEntryAssembly().GetName().Name.ToLower();
+            if (typeof(TSource) != typeof(ISource))
+                name = typeof(TSource).Name.ToLower();
+
+            Console.WriteLine("[{0}] {1}", name, string.Format(message, args));
+            Console.ForegroundColor = ConsoleColor.Gray;
         }
 
     }

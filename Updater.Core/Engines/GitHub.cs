@@ -35,7 +35,7 @@ namespace Updater.Core.Engines
             string responseFromServer = string.Empty;
             try
             {
-                WriteLine("Connecting...");
+                Engine<GitHub>.WriteLine("Connecting...");
 
                 var request = WebRequest.Create(url) as HttpWebRequest;
                 request.ContentType = "application/json; charset=utf-8";
@@ -47,7 +47,7 @@ namespace Updater.Core.Engines
                 var data = response.GetResponseStream();
                 var reader = new StreamReader(data);
 
-                WriteLine("Gathering data...");
+                Engine<GitHub>.WriteLine("Gathering data...");
 
                 responseFromServer = reader.ReadToEnd();
                 reader.Close();
@@ -56,7 +56,7 @@ namespace Updater.Core.Engines
             }
             catch (Exception ex)
             {
-                WriteLine("ERROR -> " + ex.Message);
+                Engine<GitHub>.WriteLine("ERROR -> " + ex.Message, ConsoleColor.Red);
             }
 
             return responseFromServer;
@@ -80,16 +80,16 @@ namespace Updater.Core.Engines
                 {
 
                     WebClient client = new WebClient();
-                    Console.WriteLine("Downloading \"{0}\"...", remoteUri);
+                    Engine<GitHub>.WriteLine(string.Format("Downloading \"{0}\"...", remoteUri));
 
 
                     client.DownloadFileCompleted += (sender, e) =>
                     {
                         if (e.Cancelled)
-                            WriteLine("Download was canceled.");
+                            Engine<GitHub>.WriteLine("Download was canceled.", ConsoleColor.Yellow);
 
                         if (e.Error != null)
-                            WriteLine("ERROR -> " + e.Error.Message);
+                            Engine<GitHub>.WriteLine("ERROR -> " + e.Error.Message, ConsoleColor.Red);
                         else
                         {
 
@@ -97,7 +97,7 @@ namespace Updater.Core.Engines
                                 File.Delete(fileName);
 
                             File.Move(target, fileName);
-                            WriteLine("Successfully downloaded file.");
+                            Engine<GitHub>.WriteLine("Successfully downloaded file.", ConsoleColor.Green);
                         }
                     };
 
@@ -108,7 +108,7 @@ namespace Updater.Core.Engines
             }
             catch (Exception ex)
             {
-                WriteLine("ERROR -> " + ex.Message);
+                Engine<GitHub>.WriteLine("ERROR -> " + ex.Message, ConsoleColor.Red);
             }
 
         }
@@ -163,12 +163,10 @@ namespace Updater.Core.Engines
 
             if (!File.Exists(target))
                 await download(target, asset.browser_download_url, asset.size);
+            else
+                Engine<GitHub>.WriteLine("Successfully downloaded file.", ConsoleColor.Green);
 
-        }
 
-        internal static void WriteLine(string message)
-        {
-            Console.WriteLine("[Updater:{0}] {1}", "GitHub", message);
         }
 
     }

@@ -15,7 +15,7 @@ namespace Updater
     class Program
     {
 
-        private static List<string> _args { get; set; }
+        private static Dictionary<string, string> _args { get; set; }
 
         static void About()
         {
@@ -29,11 +29,17 @@ namespace Updater
 
         static void Help()
         {
-                      
+
             string[] lines = Properties.Resources.Help.Split("\r\n".ToCharArray(), StringSplitOptions.RemoveEmptyEntries);
             foreach (var item in lines)
             {
-                Console.WriteLine(item.Replace("#","").Trim());
+                Console.ForegroundColor = ConsoleColor.DarkGray;
+
+                if (item.StartsWith("#"))
+                    Console.ForegroundColor = ConsoleColor.Gray;
+                Console.WriteLine(item.Replace("#", ""));
+
+                Console.ForegroundColor = ConsoleColor.Gray;
             }
 
             Console.ReadKey();
@@ -44,17 +50,17 @@ namespace Updater
         static void ProcessFlags()
         {
 
-            if (_args.Contains("/h"))
+            if (_args.ContainsKey("/?"))
                 Help();
 
-            Core.Flags.Force = _args.Contains("/f");
-            Core.Flags.Log = _args.Contains("/l");
-            if (Core.Flags.Log)
+            Flags.Force = _args.ContainsKey("/f");
+            Flags.Log = _args.ContainsKey("/l");
+            if (Flags.Log)
             {
                 string file = string.Empty;
                 try
                 {
-                    file = _args[_args.IndexOf("/l") + 1];
+                    file = _args["/l"];
                     if (file.StartsWith("/"))
                         file = string.Empty;
                 }
@@ -67,27 +73,27 @@ namespace Updater
                         throw new Exception("Invalid log file name.");
                 }
 
-                Core.Flags.LogFile = file;
+                Flags.LogFile = file;
 
             }
 
 
-            if (_args.Contains("/e"))
-                Core.Flags.Engine = _args[_args.IndexOf("/e") + 1];
+            if (_args.ContainsKey("/e"))
+                Flags.Engine = _args["/e"];
 
-            if (_args.Contains("/x"))
+            if (_args.ContainsKey("/x"))
             {
-                var ext = _args[_args.IndexOf("/x") + 1];
+                var ext = _args["/x"];
                 if (!ext.StartsWith(".")) ext = "." + ext;
                 var regex = new Regex(@"\.([A-Za-z0-9]+)$");
                 if (!regex.IsMatch(ext))
                     throw new Exception("Invalid cache extension.");
 
-                Core.Flags.CacheExt = ext;
+                Flags.CacheExt = ext;
 
             }
 
-            Core.Flags.Validate();
+            Flags.Validate();
         }
 
         static void Main(string[] args)
@@ -97,15 +103,30 @@ namespace Updater
 
             try
             {
-                _args = new List<string>(args);
+
+                _args = new Dictionary<string, string>();
+                foreach (var item in args)
+                {
+                    var values = item.Split(':');
+                    var key = values[0].ToLower();
+                    var value = "";
+                    if (values.Length > 1)
+                        value = values[1].Trim();
+
+                    _args.Add(key, value);
+
+                }
+
                 ProcessFlags();
 
-                switch (Core.Flags.Engine.ToLower())
+                Engine.WriteLine("Initializing engine...", ConsoleColor.Yellow);
+
+                switch (Flags.Engine.ToLower())
                 {
                     case GitHub.Name:
-                        if (_args.Contains("/r"))
+                        if (_args.ContainsKey("/r"))
                         {
-                            Engine<GitHub>.Source.Repository = _args[_args.IndexOf("/r") + 1];
+                            Engine<GitHub>.Source.Repository = _args["/r"];
                             var task = Engine<GitHub>.Source.DownloadAsync(null);
                             task.Wait();
                         }
@@ -121,10 +142,9 @@ namespace Updater
                 if (ex.GetType() == typeof(ArgumentOutOfRangeException))
                     ex = new InvalidProgramException("Invalid number of arguments.");
 
-                Console.ForegroundColor = ConsoleColor.Red;
-                Console.WriteLine(ex.Message);
+                Engine.WriteLine(ex.Message, ConsoleColor.Red);
 
-                if (Core.Flags.Log)
+                if (Flags.Log)
                     File.AppendAllText(Flags.LogFile, ex.Message);
 
             }
