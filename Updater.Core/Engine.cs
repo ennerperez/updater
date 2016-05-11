@@ -1,6 +1,10 @@
-﻿using System;
+﻿using Platform.Support;
+using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
+using System.Reflection;
+using System.Runtime.Remoting;
 using System.Text;
 
 namespace Updater.Core
@@ -12,6 +16,47 @@ namespace Updater.Core
         {
             Engine<ISource>.WriteLine(message, color, args);
         }
+
+        public static bool Exists(string name)
+        {
+            var assembly = Assembly.GetCallingAssembly();
+            var dir = new FileInfo(assembly.Location).Directory;
+            var plugins = dir.GetFiles("Updater.*.dll");
+
+            var pluginFile = plugins.FirstOrDefault(p => p.Name.ToLower().Contains(name));
+
+            return pluginFile != null;
+        }
+
+        public static ISource Create(string name)
+        {
+            ISource result = null;
+
+            var assembly = Assembly.GetCallingAssembly();
+            var dir = new FileInfo(assembly.Location).Directory;
+            var plugins = dir.GetFiles("Updater.*.dll");
+
+            var pluginFile = plugins.FirstOrDefault(p => p.Name.ToLower().Contains(name));
+
+            if (pluginFile != null)
+            {
+                try
+                {
+                    var plugin = Assembly.LoadFile(pluginFile.FullName);
+                    name = plugin.GetName().Name.Split('.').Last();
+                    ObjectHandle handle = Activator.CreateInstance(plugin.FullName, string.Format("{0}.Core.{1}", assembly.GetName().Name, name));
+                    result = (ISource)handle.Unwrap();
+                }
+                catch (Exception ex)
+                {
+                    ex.DebugThis();
+                }
+            }
+
+            return result;
+
+        }
+
     }
 
     public sealed class Engine<TSource> where TSource : ISource

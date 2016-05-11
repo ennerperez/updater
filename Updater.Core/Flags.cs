@@ -25,7 +25,7 @@ namespace Updater.Core
                 CacheExt.Length < 1)
                 throw new FormatException("Invalid cache extension.");
 
-            if (Engine.ToLower() != typeof(Engines.GitHub).Name.ToLower())
+            if (!Core.Engine.Exists(Engine))
                 throw new InvalidProgramException("Invalid source engine.");
 
         }

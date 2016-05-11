@@ -24,6 +24,12 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Updater.CLI", "Updater.CLI\
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Updater.Core", "Updater.Core\Updater.Core.csproj", "{6EEB53E8-4936-4082-A478-4CC492B950A5}"
 EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Plugins", "Plugins", "{DB09A0D0-D414-4353-A602-6C3B4B60FF0A}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Updater.GitHub", "Updater.GitHub\Updater.GitHub.csproj", "{B7D544DB-C160-443E-BEED-93BB1DFBB2BC}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Updater.NuGet", "Updater.NuGet\Updater.NuGet.csproj", "{C2C5CAF0-19C6-47E0-8FA2-78B03CD14341}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -38,8 +44,20 @@ Global
 		{6EEB53E8-4936-4082-A478-4CC492B950A5}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{6EEB53E8-4936-4082-A478-4CC492B950A5}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{6EEB53E8-4936-4082-A478-4CC492B950A5}.Release|Any CPU.Build.0 = Release|Any CPU
+		{B7D544DB-C160-443E-BEED-93BB1DFBB2BC}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{B7D544DB-C160-443E-BEED-93BB1DFBB2BC}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{B7D544DB-C160-443E-BEED-93BB1DFBB2BC}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{B7D544DB-C160-443E-BEED-93BB1DFBB2BC}.Release|Any CPU.Build.0 = Release|Any CPU
+		{C2C5CAF0-19C6-47E0-8FA2-78B03CD14341}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{C2C5CAF0-19C6-47E0-8FA2-78B03CD14341}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{C2C5CAF0-19C6-47E0-8FA2-78B03CD14341}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{C2C5CAF0-19C6-47E0-8FA2-78B03CD14341}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(NestedProjects) = preSolution
+		{B7D544DB-C160-443E-BEED-93BB1DFBB2BC} = {DB09A0D0-D414-4353-A602-6C3B4B60FF0A}
+		{C2C5CAF0-19C6-47E0-8FA2-78B03CD14341} = {DB09A0D0-D414-4353-A602-6C3B4B60FF0A}
 	EndGlobalSection
 EndGlobal

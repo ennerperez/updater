@@ -9,8 +9,10 @@ See the [changelog](CHANGELOG.md) for changes.
 ## Roadmap
 - [ ] Command Line Interface
 - [ ] GUI Interface
-- [ ] Source Engines as plug-ins
-- [ ] NuGet engine plug-in
+- [x] Source engines as plug-ins
+- [x] Github engine plug-in
+- [x] NuGet engine plug-in
+- [ ] Engine plug-in help for CLI
 
 ## Implementing in your application
 - See the [command line help](HELP_CLI.md) for usage.

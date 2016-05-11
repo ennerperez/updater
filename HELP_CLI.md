@@ -12,10 +12,21 @@
 ## GitHub (Engine)
  
  Updater /E:github /R:{username}/{repo}
+ Updater /E:github /U:{username} /R:{repo}
  
+- /U : User name
 - /R : Repository path
+
+## NuGet (Engine)
  
-## Example
+ Updater /E:nuget /P:{package}[/{version}]
+ Updater /E:nuget /P:{package} /V:{version}
+ 
+- /P : Package ID
+- /V : Version
+ 
+## Examples
  
  Updater /F /E:github /R:yck1509/ConfuserEx /L /X:tmp
+ Updater /F /E:nuget /P:entityframework/6.1.2 /L /X:tmp
  

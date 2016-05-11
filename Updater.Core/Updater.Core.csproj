@@ -90,9 +90,6 @@
     <Reference Include="System.Xml" />
   </ItemGroup>
   <ItemGroup>
-    <Compile Include="..\..\platform\Support\Console\ConsoleEx.cs">
-      <Link>ConsoleEx.cs</Link>
-    </Compile>
     <Compile Include="..\.files\AssemblyInfo.Common.cs">
       <Link>Properties\AssemblyInfo.Common.cs</Link>
     </Compile>
@@ -103,11 +100,10 @@
       <Link>Properties\AssemblyInfo.Version.cs</Link>
     </Compile>
     <Compile Include="Engine.cs" />
-    <Compile Include="Engines\GitHub.cs" />
-    <Compile Include="Engines\GitHub.Models.cs" />
     <Compile Include="Flags.cs" />
     <Compile Include="ISource.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
+    <Compile Include="IRelease.cs" />
   </ItemGroup>
   <ItemGroup>
     <None Include="app.config" />

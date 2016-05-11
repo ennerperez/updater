@@ -10,6 +10,9 @@ namespace Updater.Core
     public interface ISource
     {
 
+        string GetName();
+
+        void Initialize(IDictionary args = null);
 
         Task<IEnumerable> GetReleases();
 

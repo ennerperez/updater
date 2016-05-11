@@ -10,22 +10,29 @@ using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 
-namespace Updater.Core.Engines
+namespace Updater.Core
 {
     public sealed partial class GitHub : ISource
     {
-        public const string Name = "github";
 
+        public string Username { get; set; }
         public string Repository { get; set; }
+
         public string Url
         {
             get
             {
-                if (!string.IsNullOrEmpty(Repository))
+                if (!string.IsNullOrEmpty(Username))
+                    return string.Format(urlformat, Username, Repository);
+                else if (!string.IsNullOrEmpty(Repository))
                     return string.Format(urlformat, Repository.Split('/'));
                 return string.Empty;
             }
         }
+
+        public string GetName() { return GitHub.Name; }
+
+        public const string Name = "GitHub";
 
         internal const string urlformat = "https://api.github.com/repos/{0}/{1}/";
 
@@ -67,16 +74,12 @@ namespace Updater.Core.Engines
             try
             {
 
-                var target = fileName + Flags.CacheExt;
+                var cache = fileName + Flags.CacheExt;
 
-                if (File.Exists(target))
-                {
-                    var cache = new FileInfo(target);
-                    if ((double)cache.Length != size || size == 0 || Flags.Force)
-                        cache.Delete();
-                }
+                if (File.Exists(cache))
+                    File.Delete(cache);
 
-                if (!File.Exists(target))
+                if (!File.Exists(cache))
                 {
 
                     WebClient client = new WebClient();
@@ -96,12 +99,12 @@ namespace Updater.Core.Engines
                             if (File.Exists(fileName))
                                 File.Delete(fileName);
 
-                            File.Move(target, fileName);
+                            File.Move(cache, fileName);
                             Engine<GitHub>.WriteLine("Successfully downloaded file.", ConsoleColor.Green);
                         }
                     };
 
-                    await client.DownloadFileTaskAsync(remoteUri, target);
+                    await client.DownloadFileTaskAsync(remoteUri, cache);
 
                 }
 
@@ -112,7 +115,6 @@ namespace Updater.Core.Engines
             }
 
         }
-
 
         public async Task<IEnumerable> GetReleases()
         {
@@ -156,9 +158,9 @@ namespace Updater.Core.Engines
 
             if (File.Exists(target))
             {
-                var cache = new FileInfo(target);
-                if ((double)cache.Length != asset.size || Flags.Force)
-                    cache.Delete();
+                var file = new FileInfo(target);
+                if ((double)file.Length != asset.size || Flags.Force)
+                    file.Delete();
             }
 
             if (!File.Exists(target))
@@ -169,6 +171,32 @@ namespace Updater.Core.Engines
 
         }
 
+        public void Initialize(IDictionary args = null)
+        {
+
+            if (args.Keys.Cast<string>().Contains("/u"))
+                Username = args["/u"].ToString();
+
+            if (args.Keys.Cast<string>().Contains("/r"))
+            {
+
+                if (string.IsNullOrEmpty(Username))
+                {
+                    var parts = args["/r"].ToString().Split('/');
+                    if (parts.Count() > 1)
+                    {
+                        Username = parts[0];
+                        Repository = parts[1];
+                    }
+                }
+                else
+                {
+                    Repository = args["/r"].ToString();
+                }
+
+            }
+
+        }
     }
 
 }

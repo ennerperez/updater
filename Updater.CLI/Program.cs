@@ -6,7 +6,6 @@ using System.Reflection;
 using System.Text;
 using System.Text.RegularExpressions;
 using Updater.Core;
-using Updater.Core.Engines;
 using Platform.Support;
 using Platform.Support.Reflection;
 
@@ -71,9 +70,9 @@ namespace Updater
                     var regex = new Regex(@"^[\w\-. ]+$");
                     if (!regex.IsMatch(file))
                         throw new Exception("Invalid log file name.");
-                }
 
-                Flags.LogFile = file;
+                    Flags.LogFile = file;
+                }
 
             }
 
@@ -121,19 +120,15 @@ namespace Updater
 
                 Engine.WriteLine("Initializing engine...", ConsoleColor.Yellow);
 
-                switch (Flags.Engine.ToLower())
+                var engine = Core.Engine.Create(Flags.Engine);
+                if (engine != null)
                 {
-                    case GitHub.Name:
-                        if (_args.ContainsKey("/r"))
-                        {
-                            Engine<GitHub>.Source.Repository = _args["/r"];
-                            var task = Engine<GitHub>.Source.DownloadAsync(null);
-                            task.Wait();
-                        }
-                        break;
-                    default:
-                        break;
+                    engine.Initialize(_args);
+                    var task = engine.DownloadAsync(null);
+                    task.Wait();
                 }
+                else
+                    throw new InvalidProgramException("Invalid source engine.");
 
             }
             catch (Exception ex)
