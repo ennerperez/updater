@@ -1,6 +1,8 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
+using System.Reflection;
 using System.Text;
 
 namespace Updater.Core
@@ -18,6 +20,8 @@ namespace Updater.Core
 
         public static string CacheExt { get; set; } = ".tmp";
 
+        public static string Target { get; set; } = new FileInfo(Assembly.GetEntryAssembly().Location).Directory.FullName;
+
         public static void Validate()
         {
             if (string.IsNullOrEmpty(CacheExt) ||
@@ -27,6 +31,10 @@ namespace Updater.Core
 
             if (!Core.Engine.Exists(Engine))
                 throw new InvalidProgramException("Invalid source engine.");
+
+            if (!Directory.Exists(Target))
+                throw new DirectoryNotFoundException("Invalid target path.");
+
 
         }
 

@@ -10,13 +10,34 @@ namespace Updater.Core
     public interface ISource
     {
 
-        string GetName();
+        /// <summary>
+        /// Engine name
+        /// </summary>
+        string Name { get; }
 
-        void Initialize(IDictionary args = null);
+        /// <summary>
+        /// Initialize engine with desired settings
+        /// </summary>
+        /// <param name="args"></param>
+        void Initialize(object args = null);
 
+        /// <summary>
+        /// Get all releases from server
+        /// </summary>
+        /// <returns></returns>
         Task<IEnumerable> GetReleases();
 
-        Task DownloadAsync(object key);
+        /// <summary>
+        /// Download the selected version to cache
+        /// </summary>
+        /// <param name="args"></param>
+        Task Download(object args = null);
+
+        /// <summary>
+        /// Install the selected version to final path
+        /// </summary>
+        /// <param name="args"></param>
+        Task Install(object args = null);
 
     }
 }

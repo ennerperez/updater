@@ -1,4 +1,5 @@
-﻿using Newtonsoft.Json;
+﻿using Ionic.Zip;
+using Newtonsoft.Json;
 using Newtonsoft.Json.Serialization;
 using System;
 using System.Collections;
@@ -9,16 +10,21 @@ using System.Net;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
+using System.Xml;
+using System.Xml.Linq;
+using System.Xml.XPath;
 
 namespace Updater.Core
 {
     public sealed partial class NuGet : ISource
     {
 
-        public string Package { get; set; }
-        public Version Version { get; set; }
+        private string target;
+        public string Target { get { return target; } }
 
-        public string UrlPackage
+        #region Server definitions
+
+        private string urlPackage
         {
             get
             {
@@ -27,7 +33,7 @@ namespace Updater.Core
                 return string.Empty;
             }
         }
-        public string UrlVersions
+        private string urlVersions
         {
             get
             {
@@ -37,122 +43,75 @@ namespace Updater.Core
             }
         }
 
-        public string GetName() { return NuGet.Name; }
+        private const string urlformat = "https://www.nuget.org/api/v2/{0}/{1}";
 
-        public const string Name = "NuGet";
+        #endregion
 
-        internal const string urlformat = "https://www.nuget.org/api/v2/{0}/{1}";
-
-        static async Task<string> read(string url)
+        public async Task<Version> GetLastRelease()
         {
-
-            string responseFromServer = string.Empty;
-            try
-            {
-                Engine<NuGet>.WriteLine("Connecting...");
-
-                var request = WebRequest.Create(url) as HttpWebRequest;
-                request.ContentType = "application/json; charset=utf-8";
-                request.UserAgent = "Other";
-                request.Method = "GET";
-
-                var response = await request.GetResponseAsync() as HttpWebResponse;
-                var data = response.GetResponseStream();
-                var reader = new StreamReader(data);
-
-                Engine<NuGet>.WriteLine("Gathering data...");
-
-                responseFromServer = reader.ReadToEnd();
-                reader.Close();
-                response.Close();
-
-            }
-            catch (Exception ex)
-            {
-                Engine<NuGet>.WriteLine("ERROR -> " + ex.Message, ConsoleColor.Red);
-            }
-
-            return responseFromServer;
+            var collection = JsonConvert.DeserializeObject<IEnumerable<Version>>(await Engine<NuGet>.Read(urlVersions));
+            var result = collection
+                .OrderByDescending(r => r)
+                .FirstOrDefault();
+            return result;
         }
 
-        static async Task download(string fileName, string remoteUri, double size = 0)
+        #region ISource Implementation
+
+        private const string name = "NuGet";
+        public string Name { get { return name; } }
+
+        public void Initialize(object args = null)
         {
-            try
+            IDictionary _args = null;
+
+            if (args.GetType().GetInterfaces().Contains(typeof(IDictionary)))
+                _args = (IDictionary)args;
+
+            if (_args == null)
+                throw new InvalidDataException("Invalid initialization arguments.");
+
+            if (_args.Keys.Cast<string>().Contains("/p"))
+                Package = _args["/p"].ToString();
+
+            if (_args.Keys.Cast<string>().Contains("/v"))
             {
-
-                var cache = fileName + Flags.CacheExt;
-
-                if (File.Exists(cache))
-                    File.Delete(cache);
-
-                if (!File.Exists(cache))
-                {
-
-                    WebClient client = new WebClient();
-                    Engine<NuGet>.WriteLine(string.Format("Downloading \"{0}\"...", remoteUri));
-
-
-                    client.DownloadFileCompleted += (sender, e) =>
-                    {
-                        if (e.Cancelled)
-                            Engine<NuGet>.WriteLine("Download was canceled.", ConsoleColor.Yellow);
-
-                        if (e.Error != null)
-                            Engine<NuGet>.WriteLine("ERROR -> " + e.Error.Message, ConsoleColor.Red);
-                        else
-                        {
-
-                            if (File.Exists(fileName))
-                                File.Delete(fileName);
-
-                            File.Move(cache, fileName);
-                            Engine<NuGet>.WriteLine("Successfully downloaded file.", ConsoleColor.Green);
-                        }
-                    };
-
-                    await client.DownloadFileTaskAsync(remoteUri, cache);
-
-                }
-
+                Version version = null;
+                Version.TryParse(_args["/v"].ToString(), out version);
+                Version = version;
             }
-            catch (Exception ex)
+            else
             {
-                Engine<NuGet>.WriteLine("ERROR -> " + ex.Message, ConsoleColor.Red);
+                var parts = _args["/p"].ToString().Split('/');
+                if (parts.Count() > 1)
+                {
+                    Package = parts[0];
+                    Version version = null;
+                    Version.TryParse(parts[1], out version);
+                    Version = version;
+                }
             }
 
         }
 
         public async Task<IEnumerable> GetReleases()
         {
-            var collection = JsonConvert.DeserializeObject<IEnumerable<Version>>(await read(UrlVersions));
-
+            var collection = JsonConvert.DeserializeObject<IEnumerable<Version>>(await Engine<NuGet>.Read(urlVersions));
             return collection;
-
-        }
-        public async Task<Version> GetLastRelease()
-        {
-            var collection = JsonConvert.DeserializeObject<IEnumerable<Version>>(await read(UrlVersions));
-
-            var result = collection
-                .OrderByDescending(r => r)
-                .FirstOrDefault();
-
-            return result;
-
         }
 
-        public async Task DownloadAsync(object key)
+        public async Task Download(object args = null)
         {
+            var url = urlPackage;
 
-            var url = UrlPackage;
-
-            if (key != null && (key.GetType() == typeof(Version)))
-                Version = (Version)key;
+            if (args != null && (args.GetType() == typeof(Version)))
+                Version = (Version)args;
 
             if (Version != null)
-                url = UrlPackage + "/" + Version.ToString();
+                url = urlPackage + "/" + Version.ToString();
 
-            var target = Package.ToLower() + (Version != null ? "." + Version.ToString() : "") + ".nupkg";
+            var filename = Package.ToLower() + (Version != null ? "." + Version.ToString() : "") + ".nupkg";
+            target = Path.Combine(Engine<NuGet>.AppCache, filename);
 
             Engine<NuGet>.WriteLine("Connecting...");
 
@@ -171,36 +130,113 @@ namespace Updater.Core
             }
 
             if (!File.Exists(target))
-                await download(target, url, size);
+                await Engine<NuGet>.Download(target, url, size);
             else
                 Engine<NuGet>.WriteLine("Successfully downloaded file.", ConsoleColor.Green);
 
+            if (!File.Exists(target))
+                target = null;
         }
 
-        public void Initialize(IDictionary args = null)
+        public async Task Install(object args = null)
         {
-            if (args.Keys.Cast<string>().Contains("/p"))
-                Package = args["/p"].ToString();
 
-            if (args.Keys.Cast<string>().Contains("/v"))
+            //var filename = Package.ToLower() + (Version != null ? "." + Version.ToString() : "") + ".nupkg";
+            //target = Path.Combine(Engine<NuGet>.AppCache, filename);
+
+            Engine<NuGet>.WriteLine("Reading...");
+
+            if (!File.Exists(target))
+                throw new FileNotFoundException(target);
+
+            if (!Directory.Exists(Flags.Target))
+                throw new DirectoryNotFoundException();
+
+            var zipfile = new ZipFile(target);
+            var nuspec = zipfile.Entries.FirstOrDefault(e => e.FileName.EndsWith(".nuspec"));
+            zipfile.Dispose();
+            zipfile = null;
+            nuspec.Extract(Engine<NuGet>.AppCache, ExtractExistingFileAction.OverwriteSilently);
+            var nuspecFile = Path.Combine(Engine<NuGet>.AppCache, nuspec.FileName);
+            var nuspecDoc = XDocument.Load(nuspecFile);
+            File.Delete(nuspecFile);
+
+
+            //Engine<NuGet>.WriteLine("Finding dependencies...");
+            //var dependencies = nuspecDoc.Descendants(XName.Get("dependency", @"http://schemas.microsoft.com/packaging/2013/01/nuspec.xsd"));
+            //foreach (var item in dependencies)
+            //{
+            //    var subengine = new NuGet();
+            //    subengine.Package = item.Attribute("id").Value;
+            //    subengine.Version = new Version(item.Attribute("version").Value);
+            //    subengine.target = this.target;
+
+            //    await subengine.Download();
+            //    await subengine.Install(args);
+
+            //}
+
+            if (args != null)
             {
-                Version version = null;
-                Version.TryParse(args["/v"].ToString(), out version);
-                Version = version;
-            }
-            else
-            {
-                var parts = args["/p"].ToString().Split('/');
-                if (parts.Count() > 1)
+
+                var directory = new DirectoryInfo(Path.Combine(Engine<NuGet>.AppCache, Package));
+                if (!directory.Exists) directory.Create();
+
+                var _args = (IEnumerable)args;
+
+                foreach (var arg in _args)
                 {
-                    Package = parts[0];
-                    Version version = null;
-                    Version.TryParse(parts[1], out version);
-                    Version = version;
+
+                    Engine<NuGet>.WriteLine("Extracting...");
+
+                    zipfile = new ZipFile(target);
+                    zipfile.ExtractSelectedEntries("*.*", arg.ToString().Replace(@"\", @"/"), directory.FullName, ExtractExistingFileAction.OverwriteSilently);
+                    zipfile.Dispose();
+                    zipfile = null;
+
+                    Engine<NuGet>.WriteLine("Installing...");
+
+                    var subdirectory = new DirectoryInfo(Path.Combine(Engine<NuGet>.AppCache, Package, arg.ToString()));
+
+                    if (subdirectory.Exists)
+                    {
+                        foreach (var dir in subdirectory.GetDirectories())
+                        {
+                            var path = Path.Combine(Flags.Target, dir.Name);
+                            if (Directory.Exists(path))
+                                Directory.Delete(path, true);
+                            dir.MoveTo(path);
+                        }
+                        foreach (var file in subdirectory.GetFiles())
+                        {
+                            var path = Path.Combine(Flags.Target, file.Name);
+                            if (File.Exists(path))
+                                File.Delete(path);
+                            file.MoveTo(path);
+                        }
+
+                        subdirectory.Delete(true);
+                    }
+
                 }
+
+                directory.Delete(true);
+
+                Engine<NuGet>.WriteLine("Successfully installed.", ConsoleColor.Green);
+
             }
 
         }
+
+        #endregion
+
+        #region Engine vars
+
+        public string Package { get; set; }
+        public Version Version { get; set; }
+
+        #endregion
+
     }
 
 }

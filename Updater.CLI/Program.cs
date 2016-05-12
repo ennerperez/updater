@@ -8,6 +8,8 @@ using System.Text.RegularExpressions;
 using Updater.Core;
 using Platform.Support;
 using Platform.Support.Reflection;
+using System.Threading.Tasks;
+using System.Threading;
 
 namespace Updater
 {
@@ -73,9 +75,7 @@ namespace Updater
 
                     Flags.LogFile = file;
                 }
-
             }
-
 
             if (_args.ContainsKey("/e"))
                 Flags.Engine = _args["/e"];
@@ -92,12 +92,14 @@ namespace Updater
 
             }
 
+            if (_args.ContainsKey("/t"))
+                Flags.Target = _args["/t"];
+
             Flags.Validate();
         }
 
         static void Main(string[] args)
         {
-
             About();
 
             try
@@ -110,7 +112,7 @@ namespace Updater
                     var key = values[0].ToLower();
                     var value = "";
                     if (values.Length > 1)
-                        value = values[1].Trim();
+                        value = item.Substring(key.Length + 1); // values[1].Trim();
 
                     _args.Add(key, value);
 
@@ -120,12 +122,18 @@ namespace Updater
 
                 Engine.WriteLine("Initializing engine...", ConsoleColor.Yellow);
 
-                var engine = Core.Engine.Create(Flags.Engine);
+                var engine = Engine.Create(Flags.Engine);
                 if (engine != null)
                 {
                     engine.Initialize(_args);
-                    var task = engine.DownloadAsync(null);
-                    task.Wait();
+
+                    //await engine.Download();
+                    var download = engine.Download();
+                    download.Wait();
+
+                    var install = engine.Install(new string[] { @"lib\net40", "build" });
+                    install.Wait();
+
                 }
                 else
                     throw new InvalidProgramException("Invalid source engine.");
@@ -143,11 +151,12 @@ namespace Updater
                     File.AppendAllText(Flags.LogFile, ex.Message);
 
             }
-
+            finally
+            {
 #if DEBUG
-            Console.ReadKey();
+                Console.ReadKey();
 #endif
-
+            }
         }
     }
 }

@@ -1,4 +1,5 @@
-﻿using Newtonsoft.Json;
+﻿using Ionic.Zip;
+using Newtonsoft.Json;
 using Newtonsoft.Json.Serialization;
 using System;
 using System.Collections;
@@ -15,10 +16,12 @@ namespace Updater.Core
     public sealed partial class GitHub : ISource
     {
 
-        public string Username { get; set; }
-        public string Repository { get; set; }
+        private string target;
+        public string Target { get { return target; } }
 
-        public string Url
+        #region Server definitions
+
+        private string urlRepo
         {
             get
             {
@@ -30,105 +33,13 @@ namespace Updater.Core
             }
         }
 
-        public string GetName() { return GitHub.Name; }
-
-        public const string Name = "GitHub";
-
         internal const string urlformat = "https://api.github.com/repos/{0}/{1}/";
 
-        static async Task<string> read(string url)
-        {
+        #endregion
 
-            string responseFromServer = string.Empty;
-            try
-            {
-                Engine<GitHub>.WriteLine("Connecting...");
-
-                var request = WebRequest.Create(url) as HttpWebRequest;
-                request.ContentType = "application/json; charset=utf-8";
-                request.Accept = "application/vnd.github.v3.raw+json";
-                request.UserAgent = "Other";
-                request.Method = "GET";
-
-                var response = await request.GetResponseAsync() as HttpWebResponse;
-                var data = response.GetResponseStream();
-                var reader = new StreamReader(data);
-
-                Engine<GitHub>.WriteLine("Gathering data...");
-
-                responseFromServer = reader.ReadToEnd();
-                reader.Close();
-                response.Close();
-
-            }
-            catch (Exception ex)
-            {
-                Engine<GitHub>.WriteLine("ERROR -> " + ex.Message, ConsoleColor.Red);
-            }
-
-            return responseFromServer;
-        }
-
-        static async Task download(string fileName, string remoteUri, double size = 0)
-        {
-            try
-            {
-
-                var cache = fileName + Flags.CacheExt;
-
-                if (File.Exists(cache))
-                    File.Delete(cache);
-
-                if (!File.Exists(cache))
-                {
-
-                    WebClient client = new WebClient();
-                    Engine<GitHub>.WriteLine(string.Format("Downloading \"{0}\"...", remoteUri));
-
-
-                    client.DownloadFileCompleted += (sender, e) =>
-                    {
-                        if (e.Cancelled)
-                            Engine<GitHub>.WriteLine("Download was canceled.", ConsoleColor.Yellow);
-
-                        if (e.Error != null)
-                            Engine<GitHub>.WriteLine("ERROR -> " + e.Error.Message, ConsoleColor.Red);
-                        else
-                        {
-
-                            if (File.Exists(fileName))
-                                File.Delete(fileName);
-
-                            File.Move(cache, fileName);
-                            Engine<GitHub>.WriteLine("Successfully downloaded file.", ConsoleColor.Green);
-                        }
-                    };
-
-                    await client.DownloadFileTaskAsync(remoteUri, cache);
-
-                }
-
-            }
-            catch (Exception ex)
-            {
-                Engine<GitHub>.WriteLine("ERROR -> " + ex.Message, ConsoleColor.Red);
-            }
-
-        }
-
-        public async Task<IEnumerable> GetReleases()
-        {
-            var collection = JsonConvert.DeserializeObject<IEnumerable<Release>>(await read(Url + "releases"));
-
-            var result = collection
-                .Where(r => !r.draft);
-
-            return result;
-
-        }
         public async Task<Release> GetLastRelease()
         {
-            var collection = JsonConvert.DeserializeObject<IEnumerable<Release>>(await read(Url + "releases"));
+            var collection = JsonConvert.DeserializeObject<IEnumerable<Release>>(await Engine<GitHub>.Read(urlRepo + "releases"));
 
             var result = collection
                 .Where(r => !r.draft)
@@ -139,9 +50,54 @@ namespace Updater.Core
 
         }
 
-        public async Task DownloadAsync(object key)
+        #region ISource Implementation
+
+        private const string name = "GitHub";
+        public string Name { get { return name; } }
+
+        public void Initialize(object args = null)
         {
-            var collection = JsonConvert.DeserializeObject<IEnumerable<Release>>(await read(Url + "releases"));
+
+            IDictionary _args = null;
+
+            if (args.GetType().GetInterfaces().Contains(typeof(IDictionary)))
+                _args = (IDictionary)args;
+
+            if (_args.Keys.Cast<string>().Contains("/u"))
+                Username = _args["/u"].ToString();
+
+            if (_args.Keys.Cast<string>().Contains("/r"))
+            {
+
+                if (string.IsNullOrEmpty(Username))
+                {
+                    var parts = _args["/r"].ToString().Split('/');
+                    if (parts.Count() > 1)
+                    {
+                        Username = parts[0];
+                        Repository = parts[1];
+                    }
+                }
+                else
+                {
+                    Repository = _args["/r"].ToString();
+                }
+
+            }
+
+        }
+
+        public async Task<IEnumerable> GetReleases()
+        {
+            var collection = JsonConvert.DeserializeObject<IEnumerable<Release>>(await Engine<GitHub>.Read(urlRepo + "releases"));
+            var result = collection
+                .Where(r => !r.draft);
+            return result;
+        }
+
+        public async Task Download(object args = null)
+        {
+            var collection = JsonConvert.DeserializeObject<IEnumerable<Release>>(await Engine<GitHub>.Read(urlRepo + "releases"));
 
             var assets = collection
                 .Where(r => !r.draft)
@@ -149,12 +105,12 @@ namespace Updater.Core
 
             Asset asset = null;
 
-            if (key != null)
-                asset = assets.FirstOrDefault(r => r.id == (long)key);
+            if (args != null)
+                asset = assets.FirstOrDefault(r => r.id == (long)args);
             else
                 asset = assets.FirstOrDefault();
 
-            var target = asset.name;
+            target = Path.Combine(Engine<GitHub>.AppCache, asset.name);
 
             if (File.Exists(target))
             {
@@ -164,39 +120,126 @@ namespace Updater.Core
             }
 
             if (!File.Exists(target))
-                await download(target, asset.browser_download_url, asset.size);
+                await Engine<GitHub>.Download(target, asset.browser_download_url, asset.size);
             else
                 Engine<GitHub>.WriteLine("Successfully downloaded file.", ConsoleColor.Green);
 
+            if (!File.Exists(target))
+                target = null;
 
         }
 
-        public void Initialize(IDictionary args = null)
+        public async Task Install(object args = null)
         {
 
-            if (args.Keys.Cast<string>().Contains("/u"))
-                Username = args["/u"].ToString();
+            Engine<GitHub>.WriteLine("Reading...");
 
-            if (args.Keys.Cast<string>().Contains("/r"))
-            {
+            if (!File.Exists(target))
+                throw new FileNotFoundException(target);
 
-                if (string.IsNullOrEmpty(Username))
-                {
-                    var parts = args["/r"].ToString().Split('/');
-                    if (parts.Count() > 1)
-                    {
-                        Username = parts[0];
-                        Repository = parts[1];
-                    }
-                }
-                else
-                {
-                    Repository = args["/r"].ToString();
-                }
+            if (!Directory.Exists(Flags.Target))
+                throw new DirectoryNotFoundException();
 
-            }
+            Engine<GitHub>.WriteLine("Extracting...");
+
+            var zipfile = new ZipFile(target);
+            await Task.Factory.StartNew(() => zipfile.ExtractAll(Flags.Target, ExtractExistingFileAction.OverwriteSilently));
+
+            zipfile.Dispose();
+            zipfile = null;
+
+            Engine<GitHub>.WriteLine("Successfully installed.", ConsoleColor.Green);
 
         }
+
+        #endregion
+
+        #region Engine vars
+
+        public string Username { get; set; }
+        public string Repository { get; set; }
+
+        #endregion
+
+        //static async Task<string> read(string url)
+        //{
+
+        //    string responseFromServer = string.Empty;
+        //    try
+        //    {
+        //        Engine<GitHub>.WriteLine("Connecting...");
+
+        //        var request = WebRequest.Create(url) as HttpWebRequest;
+        //        request.ContentType = "application/json; charset=utf-8";
+        //        request.Accept = "application/vnd.github.v3.raw+json";
+        //        request.UserAgent = "Other";
+        //        request.Method = "GET";
+
+        //        var response = await request.GetResponseAsync() as HttpWebResponse;
+        //        var data = response.GetResponseStream();
+        //        var reader = new StreamReader(data);
+
+        //        Engine<GitHub>.WriteLine("Gathering data...");
+
+        //        responseFromServer = reader.ReadToEnd();
+        //        reader.Close();
+        //        response.Close();
+
+        //    }
+        //    catch (Exception ex)
+        //    {
+        //        Engine<GitHub>.WriteLine("ERROR -> " + ex.Message, ConsoleColor.Red);
+        //    }
+
+        //    return responseFromServer;
+        //}
+        //static async Task download(string fileName, string remoteUri, double size = 0)
+        //{
+        //    try
+        //    {
+
+        //        var cache = fileName + Flags.CacheExt;
+
+        //        if (File.Exists(cache))
+        //            File.Delete(cache);
+
+        //        if (!File.Exists(cache))
+        //        {
+
+        //            WebClient client = new WebClient();
+        //            Engine<GitHub>.WriteLine(string.Format("Downloading \"{0}\"...", remoteUri));
+
+
+        //            client.DownloadFileCompleted += (sender, e) =>
+        //            {
+        //                if (e.Cancelled)
+        //                    Engine<GitHub>.WriteLine("Download was canceled.", ConsoleColor.Yellow);
+
+        //                if (e.Error != null)
+        //                    Engine<GitHub>.WriteLine("ERROR -> " + e.Error.Message, ConsoleColor.Red);
+        //                else
+        //                {
+
+        //                    if (File.Exists(fileName))
+        //                        File.Delete(fileName);
+
+        //                    File.Move(cache, fileName);
+        //                    Engine<GitHub>.WriteLine("Successfully downloaded file.", ConsoleColor.Green);
+        //                }
+        //            };
+
+        //            await client.DownloadFileTaskAsync(remoteUri, cache);
+
+        //        }
+
+        //    }
+        //    catch (Exception ex)
+        //    {
+        //        Engine<GitHub>.WriteLine("ERROR -> " + ex.Message, ConsoleColor.Red);
+        //    }
+
+        //}
+
     }
 
 }
