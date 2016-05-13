@@ -16,21 +16,17 @@ namespace Updater.Core
     {
         public static void WriteLine(string message, ConsoleColor color = ConsoleColor.Gray, params string[] args)
         {
-            Engine<ISource>.WriteLine(message, color, args);
+            Engine<IEngine>.WriteLine(message, color, args);
         }
         public static bool Exists(string name)
         {
-            var assembly = Assembly.GetCallingAssembly();
-            var dir = new FileInfo(assembly.Location).Directory;
-            var plugins = dir.GetFiles("Updater.*.dll");
-
+            var plugins = Plugins();
             var pluginFile = plugins.FirstOrDefault(p => p.Name.ToLower().Contains(name));
-
             return pluginFile != null;
         }
-        public static ISource Create(string name)
+        public static IEngine Create(string name)
         {
-            ISource result = null;
+            IEngine result = null;
 
             var assembly = Assembly.GetCallingAssembly();
             var dir = new FileInfo(assembly.Location).Directory;
@@ -45,7 +41,7 @@ namespace Updater.Core
                     var plugin = Assembly.LoadFile(pluginFile.FullName);
                     name = plugin.GetName().Name.Split('.').Last();
                     ObjectHandle handle = Activator.CreateInstance(plugin.FullName, string.Format("{0}.Core.{1}", assembly.GetName().Name, name));
-                    result = (ISource)handle.Unwrap();
+                    result = (IEngine)handle.Unwrap();
                 }
                 catch (Exception ex)
                 {
@@ -56,9 +52,35 @@ namespace Updater.Core
             return result;
 
         }
+
+        public static IEnumerable<FileInfo> Plugins()
+        {
+            var assembly = Assembly.GetCallingAssembly();
+            var dir = new FileInfo(assembly.Location).Directory;
+            var plugins = dir.GetFiles("Updater.*.dll").Where(p => p.Name != "Updater.Core.dll");
+            return plugins;
+        }
+
+        public static void Help(string source)
+        {
+            string[] lines = source.Split("\r\n".ToCharArray(), StringSplitOptions.RemoveEmptyEntries);
+            foreach (var item in lines)
+            {
+                Console.ForegroundColor = ConsoleColor.DarkGray;
+
+                if (item.StartsWith("#"))
+                    Console.ForegroundColor = ConsoleColor.Gray;
+
+                var result = item.Replace("# ", "").Replace("#", "").Replace("- ", "");
+                Console.WriteLine(result);
+
+                Console.ForegroundColor = ConsoleColor.Gray;
+            }
+        }
+
     }
 
-    public sealed class Engine<TSource> where TSource : ISource
+    public sealed class Engine<TSource> where TSource : IEngine
     {
 
         #region Multi-threaded Singleton
@@ -102,8 +124,8 @@ namespace Updater.Core
         {
             Console.ForegroundColor = color;
 
-            var name = System.Reflection.Assembly.GetEntryAssembly().GetName().Name.ToLower();
-            if (typeof(TSource) != typeof(ISource))
+            var name = Assembly.GetEntryAssembly().GetName().Name.ToLower();
+            if (typeof(TSource) != typeof(IEngine))
                 name = typeof(TSource).Name.ToLower();
 
             Console.WriteLine("[{0}] {1}", name, string.Format(message, args));

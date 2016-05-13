@@ -114,11 +114,9 @@
     </Compile>
   </ItemGroup>
   <ItemGroup>
-    <None Include="..\HELP_CLI.md">
-      <Link>Resources\HELP_CLI.md</Link>
-    </None>
     <None Include="app.config" />
     <None Include="packages.config" />
+    <None Include="Resources\Help.md" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\Updater.Core\Updater.Core.csproj">

@@ -12,8 +12,8 @@ See the [changelog](CHANGELOG.md) for changes.
 - [x] Source engines as plug-ins
 - [x] GitHub engine plug-in
 - [x] NuGet engine plug-in
-- [ ] Engine plug-in help for CLI
-- [ ] Move cache to temporal folder
+- [x] Engine plug-in help for CLI
+- [x] Move cache to temporal folder
 - [ ] Authorize installation
 - [ ] NuGet core integration
 - [ ] Windows Installer plug-in

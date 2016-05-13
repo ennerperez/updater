@@ -4,6 +4,8 @@ using Newtonsoft.Json.Serialization;
 using System;
 using System.Collections;
 using System.Collections.Generic;
+using System.ComponentModel;
+using System.Globalization;
 using System.IO;
 using System.Linq;
 using System.Net;
@@ -16,11 +18,8 @@ using System.Xml.XPath;
 
 namespace Updater.Core
 {
-    public sealed partial class NuGet : ISource
+    public sealed partial class NuGet : IEngine
     {
-
-        private string target;
-        public string Target { get { return target; } }
 
         #region Server definitions
 
@@ -42,24 +41,20 @@ namespace Updater.Core
                 return string.Empty;
             }
         }
-
         private const string urlformat = "https://www.nuget.org/api/v2/{0}/{1}";
 
         #endregion
 
-        public async Task<Version> GetLastRelease()
-        {
-            var collection = JsonConvert.DeserializeObject<IEnumerable<Version>>(await Engine<NuGet>.Read(urlVersions));
-            var result = collection
-                .OrderByDescending(r => r)
-                .FirstOrDefault();
-            return result;
-        }
+        public string Package { get; set; }
+        public Version Version { get; set; }
+        public string Directories { get; set; }
 
         #region ISource Implementation
 
-        private const string name = "NuGet";
-        public string Name { get { return name; } }
+        public string Name { get { return typeof(NuGet).Name; } }
+
+        private IEnumerable<Version> releases;
+        public IEnumerable<IRelease> Releases { get; }
 
         public void Initialize(object args = null)
         {
@@ -70,6 +65,9 @@ namespace Updater.Core
 
             if (_args == null)
                 throw new InvalidDataException("Invalid initialization arguments.");
+
+            if (_args.Keys.Cast<string>().Contains("/d"))
+                Directories = _args["/d"].ToString();
 
             if (_args.Keys.Cast<string>().Contains("/p"))
                 Package = _args["/p"].ToString();
@@ -94,10 +92,16 @@ namespace Updater.Core
 
         }
 
-        public async Task<IEnumerable> GetReleases()
+        public void Help()
         {
-            var collection = JsonConvert.DeserializeObject<IEnumerable<Version>>(await Engine<NuGet>.Read(urlVersions));
-            return collection;
+            Engine.Help(Properties.Resources.Help);
+        }
+
+        public async Task Load(object args = null)
+        {
+            var uri = new UriBuilder(urlVersions);
+            var collection = JsonConvert.DeserializeObject<IEnumerable<Version>>(await Engine<NuGet>.Read(uri.ToString()));
+            releases = collection.OrderByDescending(r => r);
         }
 
         public async Task Download(object args = null)
@@ -111,7 +115,7 @@ namespace Updater.Core
                 url = urlPackage + "/" + Version.ToString();
 
             var filename = Package.ToLower() + (Version != null ? "." + Version.ToString() : "") + ".nupkg";
-            target = Path.Combine(Engine<NuGet>.AppCache, filename);
+            var target = Path.Combine(Engine<NuGet>.AppCache, filename);
 
             Engine<NuGet>.WriteLine("Connecting...");
 
@@ -141,8 +145,8 @@ namespace Updater.Core
         public async Task Install(object args = null)
         {
 
-            //var filename = Package.ToLower() + (Version != null ? "." + Version.ToString() : "") + ".nupkg";
-            //target = Path.Combine(Engine<NuGet>.AppCache, filename);
+            var filename = Package.ToLower() + (Version != null ? "." + Version.ToString() : "") + ".nupkg";
+            var target = Path.Combine(Engine<NuGet>.AppCache, filename);
 
             Engine<NuGet>.WriteLine("Reading...");
 
@@ -156,11 +160,13 @@ namespace Updater.Core
             var nuspec = zipfile.Entries.FirstOrDefault(e => e.FileName.EndsWith(".nuspec"));
             zipfile.Dispose();
             zipfile = null;
-            nuspec.Extract(Engine<NuGet>.AppCache, ExtractExistingFileAction.OverwriteSilently);
+            await Task.Factory.StartNew(() =>
+            {
+                nuspec.Extract(Engine<NuGet>.AppCache, ExtractExistingFileAction.OverwriteSilently);
+            });
             var nuspecFile = Path.Combine(Engine<NuGet>.AppCache, nuspec.FileName);
             var nuspecDoc = XDocument.Load(nuspecFile);
             File.Delete(nuspecFile);
-
 
             //Engine<NuGet>.WriteLine("Finding dependencies...");
             //var dependencies = nuspecDoc.Descendants(XName.Get("dependency", @"http://schemas.microsoft.com/packaging/2013/01/nuspec.xsd"));
@@ -176,6 +182,12 @@ namespace Updater.Core
 
             //}
 
+            if (args == null && !string.IsNullOrEmpty(Directories))
+            {
+                var listSeparator = new string[] { CultureInfo.CurrentCulture.TextInfo.ListSeparator };
+                args = Directories.Split(listSeparator, StringSplitOptions.RemoveEmptyEntries);
+            }
+
             if (args != null)
             {
 
@@ -190,7 +202,10 @@ namespace Updater.Core
                     Engine<NuGet>.WriteLine("Extracting...");
 
                     zipfile = new ZipFile(target);
-                    zipfile.ExtractSelectedEntries("*.*", arg.ToString().Replace(@"\", @"/"), directory.FullName, ExtractExistingFileAction.OverwriteSilently);
+                    await Task.Factory.StartNew(() =>
+                    {
+                        zipfile.ExtractSelectedEntries("*.*", arg.ToString().Replace(@"\", @"/"), directory.FullName, ExtractExistingFileAction.OverwriteSilently);
+                    });
                     zipfile.Dispose();
                     zipfile = null;
 
@@ -225,15 +240,35 @@ namespace Updater.Core
                 Engine<NuGet>.WriteLine("Successfully installed.", ConsoleColor.Green);
 
             }
+            else
+            {
+                Engine<NuGet>.WriteLine("Missing installation sequence.", ConsoleColor.Red);
+            }
 
         }
 
-        #endregion
+        public async Task Update(object args = null)
+        {
+            if (args == null)
+                args = new Version(1, 0, 0, 0);
 
-        #region Engine vars
+            Version curentVersion = null;
+            Version.TryParse(args.ToString(), out curentVersion);
 
-        public string Package { get; set; }
-        public Version Version { get; set; }
+            var lastRelease = (Version)releases.FirstOrDefault();
+
+            if (lastRelease == null)
+                throw new FileNotFoundException("Release was not found.");
+
+            if (lastRelease > curentVersion)
+            {
+                await Download();
+                await Install();
+            }
+            else
+                Engine<NuGet>.WriteLine("No update available.", ConsoleColor.Green);
+
+        }
 
         #endregion
 

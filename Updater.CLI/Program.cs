@@ -30,26 +30,45 @@ namespace Updater
 
         static void Help()
         {
+            Engine.Help(Properties.Resources.Help);
 
-            string[] lines = Properties.Resources.Help.Split("\r\n".ToCharArray(), StringSplitOptions.RemoveEmptyEntries);
-            foreach (var item in lines)
+            if (!string.IsNullOrEmpty(Flags.Engine))
             {
-                Console.ForegroundColor = ConsoleColor.DarkGray;
-
-                if (item.StartsWith("#"))
-                    Console.ForegroundColor = ConsoleColor.Gray;
-                Console.WriteLine(item.Replace("#", ""));
-
-                Console.ForegroundColor = ConsoleColor.Gray;
+                var engine = Engine.Create(Flags.Engine);
+                if (engine == null)
+                    throw new InvalidProgramException("Invalid source engine.");
+                engine.Help();
             }
+            else
+                Plugins();
 
             Console.ReadKey();
+            Environment.Exit(0);
+        }
 
+        static void Plugins()
+        {
+
+            Engine.WriteLine("Available plug-ins:", ConsoleColor.Yellow);
+            foreach (var item in Engine.Plugins())
+            {
+                var plugin = Assembly.ReflectionOnlyLoadFrom(item.FullName);
+                Console.ForegroundColor = ConsoleColor.DarkGray;
+                Console.WriteLine(plugin.GetName().FullName);
+                Console.ForegroundColor = ConsoleColor.Gray;
+            }
+            Console.ReadKey();
             Environment.Exit(0);
         }
 
         static void ProcessFlags()
         {
+
+            if (_args.ContainsKey("/i"))
+                Plugins();
+
+            if (_args.ContainsKey("/e"))
+                Flags.Engine = _args["/e"];
 
             if (_args.ContainsKey("/?"))
                 Help();
@@ -77,9 +96,6 @@ namespace Updater
                 }
             }
 
-            if (_args.ContainsKey("/e"))
-                Flags.Engine = _args["/e"];
-
             if (_args.ContainsKey("/x"))
             {
                 var ext = _args["/x"];
@@ -102,6 +118,9 @@ namespace Updater
         {
             About();
 
+            if (args == null || args.Count() == 0)
+                Help();
+
             try
             {
 
@@ -112,7 +131,7 @@ namespace Updater
                     var key = values[0].ToLower();
                     var value = "";
                     if (values.Length > 1)
-                        value = item.Substring(key.Length + 1); // values[1].Trim();
+                        value = item.Substring(key.Length + 1);
 
                     _args.Add(key, value);
 
@@ -124,19 +143,17 @@ namespace Updater
 
                 var engine = Engine.Create(Flags.Engine);
                 if (engine != null)
-                {
                     engine.Initialize(_args);
-
-                    //await engine.Download();
-                    var download = engine.Download();
-                    download.Wait();
-
-                    var install = engine.Install(new string[] { @"lib\net40", "build" });
-                    install.Wait();
-
-                }
                 else
                     throw new InvalidProgramException("Invalid source engine.");
+
+                // Steps : (1) Load -> (2) Update
+
+                var loader = engine.Load();
+                loader.Wait();
+
+                var udate = engine.Update();
+                udate.Wait();
 
             }
             catch (Exception ex)
@@ -158,5 +175,6 @@ namespace Updater
 #endif
             }
         }
+
     }
 }

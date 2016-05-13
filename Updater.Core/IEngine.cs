@@ -7,13 +7,20 @@ using System.Threading.Tasks;
 
 namespace Updater.Core
 {
-    public interface ISource
+    public interface IEngine
     {
+
+        void Help();
 
         /// <summary>
         /// Engine name
         /// </summary>
         string Name { get; }
+
+        /// <summary>
+        /// An collection of releases from server
+        /// </summary>
+        IEnumerable<IRelease> Releases { get; }
 
         /// <summary>
         /// Initialize engine with desired settings
@@ -22,10 +29,10 @@ namespace Updater.Core
         void Initialize(object args = null);
 
         /// <summary>
-        /// Get all releases from server
+        /// Load engine minimum data
         /// </summary>
-        /// <returns></returns>
-        Task<IEnumerable> GetReleases();
+        /// <param name="args"></param>
+        Task Load(object args = null);
 
         /// <summary>
         /// Download the selected version to cache
@@ -38,6 +45,13 @@ namespace Updater.Core
         /// </summary>
         /// <param name="args"></param>
         Task Install(object args = null);
+
+        /// <summary>
+        /// Start update process from base version
+        /// </summary>
+        /// <param name="args"></param>
+        /// <returns></returns>
+        Task Update(object args = null);
 
     }
 }

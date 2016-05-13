@@ -8,7 +8,7 @@
 // </auto-generated>
 //------------------------------------------------------------------------------
 
-namespace Updater.Properties {
+namespace Updater.Core.Properties {
     using System;
     
     
@@ -39,7 +39,7 @@ namespace Updater.Properties {
         internal static global::System.Resources.ResourceManager ResourceManager {
             get {
                 if (object.ReferenceEquals(resourceMan, null)) {
-                    global::System.Resources.ResourceManager temp = new global::System.Resources.ResourceManager("Updater.Properties.Resources", typeof(Resources).Assembly);
+                    global::System.Resources.ResourceManager temp = new global::System.Resources.ResourceManager("Updater.Core.Properties.Resources", typeof(Resources).Assembly);
                     resourceMan = temp;
                 }
                 return resourceMan;
@@ -61,26 +61,19 @@ namespace Updater.Properties {
         }
         
         /// <summary>
-        ///   Busca una cadena traducida similar a # Application Update Engine
-        ///--------------------------------------
+        ///   Busca una cadena traducida similar a ## GitHub (Engine)
         /// 
-        /// Updater [/F] /E:source [/L[[:logfile/logext]]] [/X:[.]tmp] [/T:path]
-        /// 
-        ///- /? : Display help
-        ///- /F : Replace existing files
-        ///- /L : Log operations, [log file or log extension]
-        ///- /E : Update engine
-        ///- /X : Cache file extension
-        ///- /T : Target directory
-        /// 
-        ///## GitHub (Engine)
-        /// 
-        /// Updater /E:github /R:{username}/{repo} [/D]
-        /// Updater /E:github /U:{username} /R:{repo} [/D]
+        ///Updater /E:github /R:{username}/{repo} [/D]
+        ///Updater /E:github /U:{username} /R:{repo} [/D]
         /// 
         ///- /U : User name
         ///- /R : Repository path
-        ///- /D : Include draft [resto de la cadena truncado]&quot;;.
+        ///- /D : Include drafts
+        /// 
+        ///## Examples
+        /// 
+        ///Updater /F /E:github /R:yck1509/ConfuserEx /L /X:tmp
+        /// .
         /// </summary>
         internal static string Help {
             get {
